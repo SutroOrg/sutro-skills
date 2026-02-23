@@ -520,39 +520,6 @@ Each trigger mapping has:
 
 ---
 
-## Compilation
-
-To compile a `.slang` file to SCode JSON:
-
-```bash
-./compile.sh app.slang
-```
-
-The compiler pipeline:
-1. **Lex** — `moo` lexer with indentation tokens
-2. **Parse** — Recursive descent parser produces an AST
-3. **IR** — AST transforms to `ProgramStructure` (models, actions, triggers, queues)
-4. **Codegen** — IR converts to SCode JSON
-
----
-
-## Reverse Generation (SCode → SLang)
-
-The `slang-generator` package can convert SCode back to SLang:
-
-```typescript
-import { generateSLang } from "@sutro/slang-generator";
-const slangSource = generateSLang(scode);
-```
-
-Options:
-- `includeComments: true` — adds section comment headers
-- `modelsOnly: true` — only generates entities and relations
-
-**Note**: Round-trip generation normalizes field names to camelCase and may comment out queue trigger arguments that use complex Sutro expressions.
-
----
-
 ## Full Example
 
 ```slang
