@@ -5,7 +5,11 @@ description: SLang language reference — syntax, types, entities, relations, ac
 
 # SLang Language Reference
 
-SLang is a domain-specific language for defining data models, actions, triggers, queues, and permissions for Sutro applications. It compiles to SCode, a JSON intermediate representation consumed by the Sutro platform.
+SLang is the programming language for defining [Sutro](https://withsutro.com) backends. It provides a simple but powerful way to define entire backends—including entities, logic, and security—without boilerplate or complex syntax.
+
+For official documentation, tutorials, and getting started guides, visit: **https://docs.withsutro.com/docs/SLang/introduction**
+
+This skill provides a comprehensive syntax reference for AI agents working with SLang files.
 
 ## Syntax Fundamentals
 
@@ -164,8 +168,8 @@ The following types are supported for Action parameters and return types, in add
 
 | Type | Description |
 |------|-------------|
-| `BYTE_STREAM` | Binary data / file upload | 
-| `VOID` | No value (for action returns) | 
+| `BYTE_STREAM` | Binary data / file upload |
+| `VOID` | No value (for action returns) |
 
 ### Action Parameters
 
@@ -520,36 +524,16 @@ Each trigger mapping has:
 
 ---
 
-## Compilation
+## Further Reading
 
-To compile a `.slang` file to SCode JSON:
+For more detailed documentation, tutorials, and guides:
 
-```bash
-./compile.sh app.slang
-```
-
-The compiler pipeline:
-1. **Lex** — `moo` lexer with indentation tokens
-2. **Parse** — Recursive descent parser produces an AST
-3. **IR** — AST transforms to `ProgramStructure` (models, actions, triggers, queues)
-4. **Codegen** — IR converts to SCode JSON
-
----
-
-## Reverse Generation (SCode → SLang)
-
-The `slang-generator` package can convert SCode back to SLang:
-
-```typescript
-import { generateSLang } from "@sutro/slang-generator";
-const slangSource = generateSLang(scode);
-```
-
-Options:
-- `includeComments: true` — adds section comment headers
-- `modelsOnly: true` — only generates entities and relations
-
-**Note**: Round-trip generation normalizes field names to camelCase and may comment out queue trigger arguments that use complex Sutro expressions.
+- [Introduction to SLang](https://docs.withsutro.com/docs/SLang/introduction) — Overview and core concepts
+- [Data Modeling](https://docs.withsutro.com/docs/SLang/data-modeling) — Entities, fields, and relationships
+- [Logic & Actions](https://docs.withsutro.com/docs/SLang/logic) — Business logic and control flow
+- [Security](https://docs.withsutro.com/docs/SLang/security) — Permissions and authentication
+- [API & Triggers](https://docs.withsutro.com/docs/SLang/triggers) — HTTP endpoints and queues
+- [Quickstart Guide](https://docs.withsutro.com/docs/getting-started/slang-quickstart) — Get started with SLang
 
 ---
 
