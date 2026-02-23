@@ -1,6 +1,6 @@
 ---
 name: slang
-description: SLang language reference — syntax, types, entities, relations, actions, triggers, queues, and compilation to SCode JSON.
+description: SLang language reference for defining Sutro backends — entities, relations, actions, triggers, queues, and security.
 ---
 
 # SLang Language Reference
