@@ -453,6 +453,13 @@ Do not use reserved words as identifiers. If you must use a reserved word as a f
 
 ---
 
+## Naming Conventions
+
+- **Entity and action names**: Use **PascalCase** (e.g., `UserProfile`, `CreateInvoice`, `SendNotification`).
+- **Entity fields and action variables**: Use **camelCase** (e.g., `firstName`, `createdAt`, `isActive`).
+
+---
+
 ## Known Limitations
 
 1. **Backtick identifiers with spaces**: The documentation historically mentioned backtick-quoted identifiers for names with spaces (`` `Display Name` ``), but the current lexer does not support spaces inside backticks. Use camelCase or PascalCase instead.
