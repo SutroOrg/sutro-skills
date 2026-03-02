@@ -39,6 +39,3 @@ Once installed, the skill is automatically available to AI agents (Claude, etc.)
 - [SLang Introduction](https://docs.withsutro.com/docs/SLang/introduction)
 - [Quickstart Guide](https://docs.withsutro.com/docs/getting-started/slang-quickstart)
 
-## License
-
-MIT
