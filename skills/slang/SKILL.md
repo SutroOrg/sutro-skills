@@ -702,6 +702,53 @@ queue queueName with ModelName
 - Actions enqueue with: `enqueue queueName with variable`
 - Queue triggers consume with: `trigger ActionName on Queue` + `queue queueName`
 
+### When to Use Queues
+
+Use queues for any operation that might take longer than a few seconds. HTTP requests have timeouts, so long-running work should be offloaded to a queue and processed asynchronously. Common cases:
+
+- **AI calls** — LLM prompts can take several seconds or longer, especially with large attachments or high `maxTokens`. Wrap AI work in a queue-triggered action.
+- **File processing** — Parsing, transforming, or analyzing uploaded files.
+- **External API calls** — Any third-party integration with unpredictable latency.
+- **Batch operations** — Iterating over many records to update or generate data.
+
+**Pattern**: The HTTP-triggered action creates a job record, enqueues it, and returns the job handle immediately. A separate queue-triggered action does the heavy lifting and updates the job status when done.
+
+```slang
+queue reviewQueue with ReviewJob
+
+action RequestReview(doc: Document): ReviewJob
+  description "Queue a review and return immediately."
+  body
+    job := create ReviewJob {
+      document := doc
+      status := "queued"
+    }
+    enqueue reviewQueue with job
+    return job
+
+action RunReview(job: ReviewJob): VOID
+  description "Background: perform the actual AI review."
+  body
+    update job { status := "running" }
+    result := AI.prompt(
+      message := "Review this document.",
+      attachments := [job.document.attachment]
+    )
+    update job { status := "succeeded" }
+
+trigger RequestReview on HttpRequest
+  endpoint POST /documents/{docId}/reviews
+  arguments
+    doc := @request.path.docId
+  auth
+    @subject can "review:create"
+
+trigger RunReview on Queue
+  queue reviewQueue
+  arguments
+    job := @message
+```
+
 ---
 
 ## Permissions
