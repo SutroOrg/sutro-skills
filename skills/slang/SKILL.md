@@ -1,6 +1,6 @@
 ---
 name: slang
-description: SLang language reference for defining Sutro backends — entities, relations, actions, triggers, queues, and security.
+description: SLang language reference for defining Sutro backends — entities, relations, actions, triggers, queues, security, files, and AI.
 ---
 
 # SLang Language Reference
@@ -26,12 +26,52 @@ This skill provides a comprehensive syntax reference for AI agents working with 
 
 A SLang file contains zero or more of these, in any order:
 
-1. `entity` — define a data model
-2. `relation` — define a relationship between two models
-3. `action` — define a named operation with a body
-4. `trigger` — bind an action to an HTTP endpoint, queue, or event
-5. `queue` — declare a named async queue
-6. `permissions` — define role-based permission grants
+1. `entity` — define a data model (persisted to database)
+2. `schema` — define a named, reusable type (not persisted)
+3. `relation` — define a relationship between two models
+4. `action` — define a named operation with a body or external implementation
+5. `trigger` — bind an action to an HTTP endpoint, queue, or event
+6. `queue` — declare a named async queue
+7. `permissions` — define role-based permission grants
+8. `constant` — define a named literal value
+9. `import` — import a module or built-in (e.g., `import "AI"`)
+10. `namespace` — group declarations under a namespace
+11. `deployment` — deployment configuration with version and ID mappings
+
+Any top-level construct (except `relation`, `queue`, `import`, `namespace`, `deployment`) can be prefixed with `export` to make it available to other modules.
+
+---
+
+## Import & Export
+
+### Import
+
+Import external modules or built-in modules:
+
+```slang
+import "AI"
+import "slang:AI"
+import "./models" as Models
+```
+
+- `import "AI"` and `import "slang:AI"` both resolve to the built-in AI module.
+- `import "path" as Alias` imports a module with an alias for namespaced access.
+
+### Export
+
+Prefix any entity, schema, action, trigger, permission, or constant with `export` to make it available to importing modules:
+
+```slang
+export entity User
+  fields
+    name: TEXT
+
+export action GetUser(): User
+  body
+    return single User where @id == id
+
+export constant MaxRetries := 5
+```
 
 ---
 
@@ -43,6 +83,7 @@ entity ModelName
   identity email        ;; marks this as the identity/user model
   subject               ;; marks this as the subject (authenticated user) model
   group @id             ;; scoping/grouping marker
+  role rolefield        ;; marks a field as a role field
   fields
     FieldName: TYPE
       description "Field description."
@@ -52,6 +93,8 @@ entity ModelName
     EnumField: ENUM("val1", "val2", "val3") := "val1"
     ComputedField: BOOLEAN
       computed SomeOtherField == "approved"
+    Avatar: FILE
+    AttachedDoc: FILE?
 ```
 
 ### Entity Block Keywords
@@ -62,6 +105,7 @@ entity ModelName
 | `identity` | Marks the model as the identity model (e.g. `identity email`) |
 | `subject` | Marks the model as the authenticated-user model |
 | `group` | Scoping marker (e.g. `group @id`) |
+| `role` | Marks a field as a role field (e.g. `role roleName`) |
 | `fields` | Begins the field definitions block |
 
 ### Field Modifiers
@@ -72,6 +116,7 @@ entity ModelName
 | Default | `TYPE := "value"` | Default value when not provided |
 | Description | `description "..."` | Human-readable field description |
 | Min length | `minLength N` | Minimum string length constraint |
+| Max length | `maxLength N` | Maximum string length constraint |
 | Computed | `computed <expression>` | Derived value (read-only) — see Known Limitations |
 
 ### Primitive Types
@@ -89,6 +134,7 @@ entity ModelName
 | `TIME` | Time of day | `p_TIME` |
 | `DATE_TIME` | Combined date and time | `p_DATE_TIME` |
 | `URL` | Web URL | `p_LINK` |
+| `FILE` | File attachment | `p_FILE` |
 
 **Note**: `EMAIL` is a semantic alias that maps to `p_TEXT` in SCode.
 
@@ -99,6 +145,59 @@ Status: ENUM("draft", "uploaded", "approved", "archived") := "draft"
 ```
 
 Enums define a fixed set of allowed string values. An optional default can follow `:=`.
+
+---
+
+## Schema Definition
+
+Schemas define named, reusable types without persistence — unlike entities, they do **not** create database tables. Use schemas for action params/returns, AI structured output, and embedded JSONB fields on entities.
+
+```slang
+schema Address
+  description "A physical mailing address."
+  fields
+    Street: TEXT
+    City: TEXT
+    State: TEXT
+    ZipCode: TEXT
+    Country: TEXT?
+```
+
+### Schema Field Types
+
+Schema fields support the same primitives as entity fields, plus:
+
+- **Schema references**: A field can reference another schema by name: `Shipping: Address`
+- **Array-of-schema**: A field can hold an array of schema values: `Items: [LineItem]`
+- **Namespaced references**: A field can reference a schema from another module: `Billing: Models::Address`
+
+### Nested Schema Example
+
+```slang
+schema LineItem
+  description "A single line item in an order."
+  fields
+    ProductName: TEXT
+    Quantity: NUMBER
+    Price: CURRENCY_AMOUNT
+
+schema OrderSummary
+  description "A customer order summary."
+  fields
+    OrderNumber: TEXT
+    Shipping: Address
+    Items: [LineItem]
+    TotalAmount: CURRENCY_AMOUNT
+    Status: ENUM("pending", "confirmed", "shipped", "delivered") := "pending"
+    Notes: TEXT?
+```
+
+### Schema Rules
+
+- Maximum nesting depth: 4 levels
+- No circular references (schema A referencing schema B which references schema A)
+- Schema names cannot conflict with entity names
+- Only `description` is valid in the schema block (no `subject`, `group`, or `identity`)
 
 ---
 
@@ -141,6 +240,23 @@ This means:
 
 ---
 
+## Constant Definition
+
+Constants define named literal values at the top level.
+
+```slang
+constant MaxRetries := 5
+constant AppName := "My App"
+constant Debug := false
+constant Config := { retryDelay := 1000 debug := true }
+constant Tags := ["alpha", "beta"]
+constant Empty := null
+```
+
+Supported value types: numbers, strings, booleans, null, objects, and arrays.
+
+---
+
 ## Action Definition
 
 Actions define named operations with typed parameters and a body of statements.
@@ -164,12 +280,13 @@ action ListItems(): [Item]
 
 ### Action-Only Types
 
-The following types are supported for Action parameters and return types, in addition to the Sutro primitives:
+The following types are supported for action parameters and return types, in addition to the Sutro primitives:
 
 | Type | Description |
 |------|-------------|
-| `BYTE_STREAM` | Binary data / file upload |
+| `BYTE_STREAM` | Binary data / file upload (converted to FILE internally) |
 | `VOID` | No value (for action returns) |
+| `FILE` | File reference (also usable on entity fields) |
 
 ### Action Parameters
 
@@ -177,9 +294,26 @@ The following types are supported for Action parameters and return types, in add
 - Optional: `name?: TYPE`
 - Optional with default: `name?: TYPE := "default"`
 - Model type: `name: ModelName`
-- Model field type: `name: ModelName[FieldName]`
+- Model field type: `name: ModelName[FieldName]` (constrains to that field's enum values)
 - Array return type: `[ModelName]`
 - Optional return type: `ReturnType?`
+- Schema type: `name: SchemaName`
+
+### External Actions
+
+Actions can delegate to external TypeScript implementations instead of using a SLang body:
+
+```slang
+action MyAction(message: TEXT): TEXT
+  external
+    file := "./my-implementation.ts"
+    impl := "MyActionFunction"
+```
+
+- `file` — path to the TypeScript implementation file
+- `impl` — name of the exported function
+
+External actions are used by built-in modules like the AI module. See the [AI Module](#ai-module) section.
 
 ### Action Body Statements
 
@@ -210,6 +344,7 @@ delete variable
 
 ```slang
 result := pageOf ModelName where fieldName == value
+result := pageOf ModelName    ;; no filter — returns all
 ```
 
 #### Query (single record)
@@ -233,12 +368,66 @@ assert(description := "Error message shown to user.",
 enqueue QueueName with variable
 ```
 
+#### Store (file persistence)
+
+```slang
+storedFile := store uploadedFile
+```
+
+The `store` expression persists a file (e.g., from a `BYTE_STREAM` parameter) to object storage and returns a `FILE` reference with a URL.
+
+#### Clone
+
+```slang
+copy := clone original
+```
+
+Creates a deep copy of an object.
+
 #### For Loop
 
 ```slang
 for item in collection
   ;; loop body using item
 ```
+
+#### While Loop
+
+```slang
+while condition
+  ;; loop body
+```
+
+#### If / Else
+
+```slang
+if condition
+  ;; then block
+
+if condition
+  ;; then block
+else
+  ;; else block
+
+if condition
+  ;; then block
+else if otherCondition
+  ;; else-if block
+else
+  ;; final else block
+```
+
+#### Break / Continue
+
+```slang
+for item in collection
+  if item.skip
+    continue
+  if item.done
+    break
+```
+
+`break` and `continue` must be inside a `for` or `while` loop.
 
 #### Return
 
@@ -251,6 +440,144 @@ return expression
 ```slang
 result := SomeService.method(param1 := value1, param2 := value2)
 ```
+
+Namespaced calls use dot notation (e.g., `AI.prompt(...)`).
+
+---
+
+## AI Module
+
+SLang includes a built-in AI module for LLM integration. Import it to call AI models from action bodies.
+
+### Import
+
+```slang
+import "AI"
+```
+
+### AI.prompt()
+
+```slang
+result := AI.prompt(
+  message := "Summarize this document",
+  system := "You are a helpful assistant",
+  attachments := [document.file],
+  provider := "openai",
+  modelName := "gpt-4o",
+  temperature := 0.7,
+  maxTokens := 500
+)
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `message` | TEXT | Yes | The user prompt to send to the AI model |
+| `system` | TEXT | No | System prompt defining the AI's behavior |
+| `attachments` | [FILE] | No | Array of files to send (images, PDFs, etc.) |
+| `provider` | TEXT | No | `"openai"` (default) or `"anthropic"` |
+| `modelName` | TEXT | No | Specific model name for the provider |
+| `temperature` | NUMBER | No | Controls output randomness |
+| `maxTokens` | NUMBER | No | Maximum tokens to generate |
+
+**Returns:** `TEXT` (the AI's response)
+
+### Supported Providers
+
+| Provider | Keyword | Default Model |
+|----------|---------|---------------|
+| OpenAI | `"openai"` | Default OpenAI model |
+| Anthropic | `"anthropic"` | Default Anthropic model |
+
+### Attachment Support
+
+The `attachments` parameter accepts an array of `FILE` values. Supported file types:
+
+- **Images** (PNG, JPG, etc.) — sent as image content parts
+- **Documents** (PDF, text, etc.) — sent as file content parts with metadata
+
+### Example: AI-Powered Review
+
+```slang
+import "AI"
+
+schema AIReviewResult
+  description "Structured output from AI review."
+  fields
+    Summary: TEXT
+    Pros: TEXT
+    Cons: TEXT
+    Score: NUMBER
+
+action SummarizeDocument(doc: Document): TEXT
+  description "Use AI to summarize a document."
+  body
+    summary := AI.prompt(
+      message := "Summarize the following document concisely.",
+      attachments := [doc.file],
+      provider := "openai"
+    )
+    return summary
+```
+
+---
+
+## File Handling
+
+SLang supports file uploads and storage through the `FILE` and `BYTE_STREAM` types.
+
+### FILE Type
+
+`FILE` is a primitive type for file references. Use it on entity fields to store file attachments:
+
+```slang
+entity Document
+  fields
+    Title: TEXT
+    Attachment: FILE
+    Thumbnail: FILE?
+```
+
+### BYTE_STREAM Type
+
+`BYTE_STREAM` is used in action parameters to accept raw file upload data. It is converted to a `FILE` internally:
+
+```slang
+action UploadDocument(title: TEXT, file: BYTE_STREAM): Document
+  description "Upload a document."
+  body
+    doc := create Document {
+      title := title
+      owner := @subject
+    }
+    storedFile := store file
+    return doc
+```
+
+### Accessing Files from HTTP Requests
+
+In HTTP trigger arguments, uploaded files are accessed via `@request.files`:
+
+```slang
+trigger UploadDocument on HttpRequest
+  endpoint POST /documents
+  arguments
+    title := @request.body.title
+    file := @request.files.files
+  auth
+    @subject can "doc:upload"
+```
+
+### The `store` Expression
+
+The `store` expression persists a file to object storage and returns a `FILE` reference:
+
+```slang
+storedFile := store uploadedFile
+```
+
+Files are stored in S3-compatible object storage with presigned URLs for access.
 
 ---
 
@@ -291,13 +618,22 @@ trigger CreateUser on HttpRequest
 
 **HTTP methods**: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (any valid method).
 
-**Path parameters**: Use `{paramName}` in the path, reference via `@request.path.paramName`.
+**Path parameters**: Use `{paramName}` in the path, reference via `@request.path.paramName`. Hyphens are supported in URL segments (e.g., `/delete-user`).
 
 ```slang
 trigger GetUser on HttpRequest
   endpoint GET /users/{userId}
   arguments
     userId := @request.path.userId
+```
+
+**Whole-body mapping**: Pass the entire request body to an action parameter:
+
+```slang
+trigger CreateUser on HttpRequest
+  endpoint POST /users
+  arguments
+    data := @request.body
 ```
 
 Triggers that don't need arguments (e.g., list endpoints where the action derives data from `@subject`) can omit the `arguments` block:
@@ -370,8 +706,6 @@ queue queueName with ModelName
 
 ## Permissions
 
-**Note**: Permissions parse correctly but are not yet fully serialized to SCode.
-
 The syntax:
 
 ```slang
@@ -413,12 +747,14 @@ permissions User -> Organization
 | `@subject` | The authenticated user |
 | `@request` | The incoming HTTP request |
 | `@request.body.*` | Request body fields |
+| `@request.body` | Entire request body (for whole-body mapping) |
 | `@request.path.*` | URL path parameters |
 | `@request.files.*` | Uploaded files |
+| `@request.query.*` | Query string parameters |
 | `@message` | Queue/event message payload |
 | `@id` | Internal ID reference |
-| `@anonymous` | Anonymous user marker |
-| `@defined` | Any authenticated user marker |
+| `@anonymous` | Anonymous user marker (auth rules only) |
+| `@defined` | Any authenticated user marker (auth rules only) |
 
 ### Literals
 
@@ -436,17 +772,19 @@ permissions User -> Organization
 ### Active Keywords
 
 ```
-action, and, anonymous, arguments, assert, auth, body, can, computed,
-create, defined, delete, endpoint, enqueue, entity, event, fields, for, group,
-in, is, model, on, of, or, pageOf, params, permissions, queue, relation,
-return, role, single, subject, trigger, update, with, where
+action, and, anonymous, as, arguments, assert, auth, body, break, can,
+clone, computed, constant, continue, create, defined, delete, deployment,
+else, endpoint, enqueue, entity, event, export, external, fields, file,
+for, group, if, impl, import, in, is, model, namespace, on, of, or,
+pageOf, params, permissions, queue, relation, return, role, schema,
+single, store, subject, trigger, update, version, while, with, where
 ```
 
 ### Reserved (not yet implemented)
 
 ```
-break, bus, case, concurrent, continue, emit, helper, include, lambda,
-publish, switch, topic, while, yield
+bus, case, concurrent, emit, helper, include, lambda,
+publish, switch, topic, yield
 ```
 
 Do not use reserved words as identifiers. If you must use a reserved word as a field name, the SLang generator will automatically wrap it in backticks (e.g., `` `role` ``).
@@ -462,13 +800,11 @@ Do not use reserved words as identifiers. If you must use a reserved word as a f
 
 ## Known Limitations
 
-1. **Backtick identifiers with spaces**: The documentation historically mentioned backtick-quoted identifiers for names with spaces (`` `Display Name` ``), but the current lexer does not support spaces inside backticks. Use camelCase or PascalCase instead.
+1. **Backtick identifiers with spaces**: The current lexer does not support spaces inside backticks. Use camelCase or PascalCase instead.
 
 2. **Computed fields**: The `computed` keyword parses correctly, but computed expressions are not fully serialized to SCode output.
 
-3. **Permissions**: Permission statements parse correctly but are not serialized to the SCode output.
-
-4. **Round-trip field casing**: When generating SLang from SCode, field names are normalized to camelCase. This is valid SLang but may differ from the original casing.
+3. **Round-trip field casing**: When generating SLang from SCode, field names are normalized to camelCase. This is valid SLang but may differ from the original casing.
 
 ---
 
@@ -483,6 +819,7 @@ SLang compiles to SCode, a JSON structure with this shape:
   "userModelId": "urn:sutro:model:<uuid>",
   "groupModelId": "urn:sutro:model:<uuid>",
   "models": [ ... ],
+  "schemas": [ ... ],
   "actions": [ ... ],
   "triggers": [ ... ],
   "queues": [ ... ],
@@ -514,14 +851,14 @@ Each model has:
 - `name` — Display name
 - `fields` — Array of edges, each with `id`, `name`, `to` (type reference), `min`, `max`, `relationshipOwner`, `accessControl`
 
-Field `to` values: primitive types are `p_TEXT`, `p_NUMBER`, etc. Relation fields point to model IDs.
+Field `to` values: primitive types are `p_TEXT`, `p_NUMBER`, `p_FILE`, etc. Relation fields point to model IDs.
 
 ### SCode Actions
 
 Each action has:
 - `id` — Action ID
 - `name` — Display name
-- `effects` — Array of effect objects (create, update, delete, assert, return, or `@sutro/executeSlang` for SLang bodies)
+- `effects` — Array of effect objects (create, update, delete, assert, return, `@sutro/executeSlang` for SLang bodies, or `@sutro/executeExternalSlang` for external actions)
 
 ### SCode Triggers
 
@@ -547,6 +884,8 @@ For more detailed documentation, tutorials, and guides:
 ## Full Example
 
 ```slang
+import "AI"
+
 entity Organization
   description "Tenant workspace."
   group @id
@@ -573,7 +912,10 @@ entity Document
   fields
     Title: TEXT
       minLength 1
-    Status: ENUM("draft", "published") := "draft"
+    Status: ENUM("draft", "uploaded", "published") := "draft"
+    Reviewable: BOOLEAN
+      computed Status == "published"
+    Attachment: FILE?
 
 relation User[Memberships] 1 --- 0..* Membership[Member]
 relation Organization[Members] 1 --- 0..* Membership[Organization]
@@ -592,10 +934,36 @@ action CreateDocument(organization: Organization, title: TEXT): Document
     }
     return doc
 
+action UploadDocument(organization: Organization, title: TEXT, file: BYTE_STREAM): Document
+  description "Upload a document with a file attachment."
+  body
+    doc := create Document {
+      title := title
+      organization := organization
+      owner := @subject
+      status := "draft"
+    }
+    storedFile := store file
+    update doc { status := "uploaded" }
+    return doc
+
+action SummarizeDocument(doc: Document): TEXT
+  description "Use AI to summarize a document."
+  body
+    summary := AI.prompt(
+      message := "Summarize this document concisely.",
+      attachments := [doc.attachment],
+      provider := "openai"
+    )
+    return summary
+
 action ProcessDocument(doc: Document): VOID
   description "Background document processor."
   body
-    update doc { status := "published" }
+    if doc.status == "uploaded"
+      update doc { status := "published" }
+    else
+      assert(description := "Document must be uploaded first.", rule := false)
 
 trigger CreateDocument on HttpRequest
   endpoint POST /organizations/{organizationId}/documents
@@ -604,6 +972,15 @@ trigger CreateDocument on HttpRequest
     title := @request.body.title
   auth
     @subject can "doc:create"
+
+trigger UploadDocument on HttpRequest
+  endpoint POST /organizations/{organizationId}/documents/upload
+  arguments
+    organization := @subject.organization
+    title := @request.body.title
+    file := @request.files.files
+  auth
+    @subject can "doc:upload"
 
 trigger ProcessDocument on Queue
   queue documentQueue
