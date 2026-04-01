@@ -841,7 +841,7 @@ Do not use reserved words as identifiers. If you must use a reserved word as a f
 ## Naming Conventions
 
 - **Entity and action names**: Use **PascalCase** (e.g., `UserProfile`, `CreateInvoice`, `SendNotification`).
-- **Entity fields and action variables**: Use **camelCase** (e.g., `firstName`, `createdAt`, `isActive`).
+- **Entity fields and action variables**: Use **camelCase** (e.g., `firstName`, `isActive`).
 
 ---
 
@@ -852,6 +852,32 @@ Do not use reserved words as identifiers. If you must use a reserved word as a f
 2. **Computed fields**: The `computed` keyword parses correctly, but computed expressions are not fully serialized to SCode output.
 
 3. **Round-trip field casing**: When generating SLang from SCode, field names are normalized to camelCase. This is valid SLang but may differ from the original casing.
+
+---
+
+## Deployment Block
+
+The `deployment` block maps entity and field names to stable database IDs, ensuring data persists across edits:
+
+```slang
+deployment
+  appId "my-app-id"
+  version v1.0.0
+  User -> urn:sutro:model:abc123
+    Name -> urn:sutro:edge:def456
+    Email -> urn:sutro:edge:ghi789
+  Post -> urn:sutro:model:jkl012
+    Title -> urn:sutro:edge:mno345
+```
+
+### Editing Rules
+
+- **Rename**: Update the name (left of `->`) to the new name. Keep the ID (right of `->`) unchanged.
+  - Entity rename: `Post -> urn:sutro:model:jkl012` becomes `Article -> urn:sutro:model:jkl012`
+  - Field rename: `Title -> urn:sutro:edge:mno345` becomes `Headline -> urn:sutro:edge:mno345`
+- **Remove**: Delete the entry from the deployment block.
+- **Add**: Do not add new entries. The system assigns IDs for new entities/fields automatically.
+- Never modify `urn:sutro:...` values, `appId`, or `version`.
 
 ---
 
@@ -899,6 +925,9 @@ Each model has:
 - `fields` — Array of edges, each with `id`, `name`, `to` (type reference), `min`, `max`, `relationshipOwner`, `accessControl`
 
 Field `to` values: primitive types are `p_TEXT`, `p_NUMBER`, `p_FILE`, etc. Relation fields point to model IDs.
+
+When creating fields, DO NOT add `createdAt`, `updatedAt`, `deletedAt` fields. The platform will add those automatically. 
+Adding these fields will result in a SLang error and the only way to fix that error is to remove these fields.
 
 ### SCode Actions
 
