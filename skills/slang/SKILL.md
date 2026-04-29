@@ -284,7 +284,6 @@ The following types are supported for action parameters and return types, in add
 
 | Type | Description |
 |------|-------------|
-| `BYTE_STREAM` | Binary data / file upload (converted to FILE internally) |
 | `VOID` | No value (for action returns) |
 | `FILE` | File reference (also usable on entity fields) |
 
@@ -374,7 +373,7 @@ enqueue QueueName with variable
 storedFile := store uploadedFile
 ```
 
-The `store` expression persists a file (e.g., from a `BYTE_STREAM` parameter) to object storage and returns a `FILE` reference with a URL.
+The `store` expression persists a file (e.g., from a `FILE` parameter) to object storage and returns a `FILE` reference with a URL.
 
 #### Clone
 
@@ -525,7 +524,7 @@ action SummarizeDocument(doc: Document): TEXT
 
 ## File Handling
 
-SLang supports file uploads and storage through the `FILE` and `BYTE_STREAM` types.
+SLang supports file uploads and storage through the `FILE` type.
 
 ### FILE Type
 
@@ -539,35 +538,21 @@ entity Document
     Thumbnail: FILE?
 ```
 
-### BYTE_STREAM Type
-
-`BYTE_STREAM` is used in action parameters to accept raw file upload data. It is converted to a `FILE` internally:
-
-```slang
-action UploadDocument(title: TEXT, file: BYTE_STREAM): Document
-  description "Upload a document."
-  body
-    doc := create Document {
-      title := title
-      owner := @subject
-    }
-    storedFile := store file
-    return doc
-```
-
 ### Accessing Files from HTTP Requests
 
-In HTTP trigger arguments, uploaded files are accessed via `@request.files`:
+In HTTP trigger arguments, uploaded files are accessed via `@request.files`.
+Use a `FILE` action argument and match the multipart field name to the trigger
+binding:
 
 ```slang
 trigger UploadDocument on HttpRequest
   endpoint POST /documents
   arguments
     title := @request.body.title
-    file := @request.files.files
-  auth
-    @subject can "doc:upload"
+    file := @request.files.file
 ```
+
+`@request.files.<fieldName>` resolves to a `FILE` value.
 
 ### The `store` Expression
 
@@ -1010,7 +995,7 @@ action CreateDocument(organization: Organization, title: TEXT): Document
     }
     return doc
 
-action UploadDocument(organization: Organization, title: TEXT, file: BYTE_STREAM): Document
+action UploadDocument(organization: Organization, title: TEXT, file: FILE): Document
   description "Upload a document with a file attachment."
   body
     doc := create Document {
@@ -1054,7 +1039,7 @@ trigger UploadDocument on HttpRequest
   arguments
     organization := @subject.organization
     title := @request.body.title
-    file := @request.files.files
+    file := @request.files.file
   auth
     @subject can "doc:upload"
 
