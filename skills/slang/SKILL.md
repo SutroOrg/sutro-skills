@@ -271,11 +271,11 @@ action ActionName(param1: TYPE, param2?: TYPE := "default"): ReturnType
 Actions with no parameters use empty parentheses:
 
 ```slang
-action ListItems(): [Item]
+action ListItems(): Page<Item>
   description "List all items for the current user."
   body
-    items := pageOf Item where owner == @subject
-    return items
+    page := pageOf Item where owner == @subject
+    return page
 ```
 
 ### Action-Only Types
@@ -295,6 +295,7 @@ The following types are supported for action parameters and return types, in add
 - Model type: `name: ModelName`
 - Model field type: `name: ModelName[FieldName]` (constrains to that field's enum values)
 - Array return type: `[ModelName]`
+- Page return type: `Page<ModelName>` for values returned by `pageOf`
 - Optional return type: `ReturnType?`
 - Schema type: `name: SchemaName`
 
@@ -345,6 +346,8 @@ delete variable
 result := pageOf ModelName where fieldName == value
 result := pageOf ModelName    ;; no filter — returns all
 ```
+
+`pageOf` returns `Page<ModelName>`, not `[ModelName]`. Use `result.items` when a plain array is required, such as in a `for` loop.
 
 #### Query (single record)
 
