@@ -24,7 +24,7 @@ Read the relevant docs before writing or reviewing SLang:
 - Quickstart, SAPI upload, and publishing flow: https://docs.withsutro.com/docs/getting-started/slang-quickstart
 - Sutro API authentication and setup: https://docs.withsutro.com/docs/getting-started/api
 - Upload and compile SLang through SAPI: https://docs.withsutro.com/api-reference/applications/update-an-application-through-slang
-- Publish through SAPI: https://docs.withsutro.com/api-reference/applications/publish-application
+- Publish through SAPI: https://docs.withsutro.com/api-reference/applications/publish-an-application
 
 ## Working Rules
 
@@ -32,6 +32,7 @@ Read the relevant docs before writing or reviewing SLang:
 - Prefer documented syntax over older examples copied from tests or stale skill content.
 - For auth, model a subject with `subject` and `identity <fieldName>`, use `@subject.entity` when action logic needs the persisted user row, and use documented `permissions Subject->relationPath->roleValue` syntax.
 - Pretty much all apps need auth, so make sure there's at least one entity declared as `subject`
+- Make sure to set proper permissions, as documented here: https://docs.withsutro.com/docs/SLang/security#groups-roles-and-permissions
 - For files, bind uploads from `@request.files.<fieldName>`, use `FILE` parameters/fields, and call `store` before persisting an upload that must survive the request.
 - For AI and HTTP, import the built-ins with `import "AI"` or `import "HTTP"` and call their documented actions through the module namespace.
 - For collection queries, remember `pageOf` returns `Page<Model>`; iterate over `page.items`.
