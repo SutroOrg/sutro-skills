@@ -38,8 +38,10 @@ If a SLang application is successfully uploaded to SAPI, it can be published (se
 
 - Keep SLang examples complete enough to validate through SAPI.
 - Prefer documented syntax over older examples copied from tests or stale skill content.
+- For comments, use single-line `;;` comments only. Do not use `#` or `//` in `.slang` files, do not add decorative separator comment blocks, and keep generated SLang ASCII-only unless user-provided domain data requires otherwise. Use `-` instead of em dashes.
 - For auth, model a subject with `subject` and `identity <fieldName>`, use `@subject.entity` when action logic needs the persisted user row, and use documented `permissions Subject->relationPath->roleValue` syntax.
 - Pretty much all apps need auth, so make sure there's at least one entity declared as `subject`
+- Make sure to set proper permissions, as documented here: https://docs.withsutro.com/docs/SLang/security#groups-roles-and-permissions
 - For files, bind uploads from `@request.files.<fieldName>`, use `FILE` parameters/fields, and call `store` before persisting an upload that must survive the request.
 - For AI and HTTP, import the built-ins with `import "AI"` or `import "HTTP"` and call their documented actions through the module namespace.
 - For collection queries, remember `pageOf` returns `Page<Model>`; iterate over `page.items`.
